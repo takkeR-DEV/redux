@@ -1,0 +1,243 @@
+# Redux Toolkit: Простое управление состоянием с TypeScript
+
+## Слайд 1: Что такое Redux Toolkit?
+
+**Redux Toolkit** — это современная официальная библиотека от Redux Team, которая упрощает работу с Redux:
+
+* Убирает "боли" классического Redux
+* Делает код компактнее
+* Добавляет поддержку иммутабельности через Immer
+* Включает мощные инструменты, такие как `createSlice`, `configureStore`, `createAsyncThunk`
+* Отлично работает с TypeScript
+
+---
+
+## Слайд 2: Зачем вообще нужен Redux?
+
+React не даёт глобального состояния из коробки.
+
+> Проблема: Компоненты на разных уровнях дерева хотят делиться одними и теми же данными.
+
+**Решение: Redux — глобальное хранилище.**
+
+* Один источник истины
+* Прозрачное управление состоянием
+* Простое масштабирование
+
+---
+
+## Слайд 3: Установка
+
+```bash
+npm install @reduxjs/toolkit react-redux
+```
+
+---
+
+## Слайд 4: Структура проекта
+
+```
+src/
+  store.ts
+  hooks.ts
+  features/
+    counter/
+      counterSlice.ts
+    users/
+      usersSlice.ts
+  App.tsx
+```
+
+---
+
+## Слайд 5: Типы и хуки
+
+```ts
+// hooks.ts
+import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
+import type { RootState, AppDispatch } from './store';
+
+export const useAppDispatch: () => AppDispatch = useDispatch;
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+```
+
+---
+
+## Слайд 6: Создание Slice
+
+```ts
+// counterSlice.ts
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+interface CounterState {
+  value: number;
+}
+
+const initialState: CounterState = { value: 0 };
+
+const counterSlice = createSlice({
+  name: 'counter',
+  initialState,
+  reducers: {
+    increment: (state) => { state.value += 1; },
+    decrement: (state) => { state.value -= 1; },
+    incrementByAmount: (state, action: PayloadAction<number>) => {
+      state.value += action.payload;
+    },
+  },
+});
+
+export const { increment, decrement, incrementByAmount } = counterSlice.actions;
+export default counterSlice.reducer;
+```
+
+---
+
+## Слайд 7: Создание Store и типов
+
+```ts
+// store.ts
+import { configureStore } from '@reduxjs/toolkit';
+import counterReducer from './features/counter/counterSlice';
+import usersReducer from './features/users/usersSlice';
+
+export const store = configureStore({
+  reducer: {
+    counter: counterReducer,
+    users: usersReducer,
+  },
+});
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+```
+
+---
+
+## Слайд 8: Подключение Store к приложению
+
+```tsx
+// main.tsx
+import { Provider } from 'react-redux';
+import { store } from './store';
+
+<Provider store={store}>
+  <App />
+</Provider>
+```
+
+---
+
+## Слайд 9: Использование в компоненте (Counter)
+
+```tsx
+import { useAppSelector, useAppDispatch } from '../../hooks';
+import { increment, decrement } from './counterSlice';
+
+const Counter = () => {
+  const value = useAppSelector((state) => state.counter.value);
+  const dispatch = useAppDispatch();
+
+  return (
+    <div>
+      <button onClick={() => dispatch(decrement())}>-</button>
+      <span>{value}</span>
+      <button onClick={() => dispatch(increment())}>+</button>
+    </div>
+  );
+};
+```
+
+---
+
+## Слайд 10: Асинхронность — createAsyncThunk
+
+```ts
+// usersSlice.ts
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+
+interface User {
+  id: number;
+  name: string;
+}
+
+interface UsersState {
+  data: User[];
+  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+}
+
+const initialState: UsersState = {
+  data: [],
+  status: 'idle',
+};
+
+export const fetchUsers = createAsyncThunk<User[]>('users/fetch', async () => {
+  const res = await fetch('https://jsonplaceholder.typicode.com/users');
+  return await res.json();
+});
+
+const usersSlice = createSlice({
+  name: 'users',
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchUsers.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(fetchUsers.fulfilled, (state, action: PayloadAction<User[]>) => {
+        state.status = 'succeeded';
+        state.data = action.payload;
+      })
+      .addCase(fetchUsers.rejected, (state) => {
+        state.status = 'failed';
+      });
+  },
+});
+
+export default usersSlice.reducer;
+```
+
+---
+
+## Слайд 11: Использование запроса в компоненте
+
+```tsx
+import { useAppSelector, useAppDispatch } from '../../hooks';
+import { fetchUsers } from './usersSlice';
+import { useEffect } from 'react';
+
+const Users = () => {
+  const dispatch = useAppDispatch();
+  const users = useAppSelector((state) => state.users.data);
+  const status = useAppSelector((state) => state.users.status);
+
+  useEffect(() => {
+    dispatch(fetchUsers());
+  }, [dispatch]);
+
+  if (status === 'loading') return <p>Загрузка...</p>;
+  if (status === 'failed') return <p>Ошибка загрузки</p>;
+
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  );
+};
+```
+
+---
+
+## Слайд 12: Заключение
+
+✅ Redux Toolkit с TypeScript — это мощный и удобный инструмент.
+
+* Простая настройка store и типов
+* createSlice автоматически выводит типы
+* useAppSelector/useAppDispatch для типобезопасности
+* Асинхронные запросы с createAsyncThunk
+
+> Рекомендуется для новых проектов!
